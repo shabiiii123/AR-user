@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Innovify XR AR – Home</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 35%, #020617 100%);
+      color: #f1f5f9;
+      padding-bottom: 80px;
+    }
+
+    /* Top bar */
+    .top-bar {
+      text-align: center;
+      padding: 10px 16px;
+      background: linear-gradient(90deg, #1e3a5f 0%, #334155 50%, #c2410c 100%);
+      color: #cbd5e1;
+      font-size: 13px;
+    }
+
+    .page {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 12px 16px 24px;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 0;
+    }
+    .Brand1-logo {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: linear-gradient(145deg, #d4af37, #b8860b);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 16px;
+      color: #0f172a;
+      box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4);
+    }
+    .Brand1-text {
+      font-size: 20px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    /* Promo banner */
+    .promo-banner {
+      border-radius: 20px;
+      padding: 20px 16px;
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      border: 1px solid rgba(212, 175, 55, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 8px;
+      min-height: 120px;
+    }
+    .promo-text-wrap {
+      flex: 1;
+      min-width: 0;
+    }
+    .promo-label { font-size: 12px; color: #94a3b8; }
+    .promo-offer { font-size: 26px; font-weight: 800; color: #fff; line-height: 1.2; margin: 4px 0 2px; }
+    .promo-sub { font-size: 12px; color: #94a3b8; margin-bottom: 10px; }
+    .promo-btn {
+      display: inline-block;
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: 2px solid #d4af37;
+      background: transparent;
+      color: #d4af37;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .promo-btn:hover { background: rgba(212, 175, 55, 0.15); }
+    .promo-img {
+      width: 100px;
+      height: 100px;
+      border-radius: 16px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .carousel-dots {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .carousel-dots span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #475569;
+    }
+    .carousel-dots span.active { background: #d4af37; width: 8px; height: 8px; }
+
+    /* Category tabs */
+    .categories {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 16px 0;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .categories::-webkit-scrollbar { display: none; }
+    .cat-btn {
+      flex-shrink: 0;
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #e2e8f0;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .cat-btn.active, .cat-btn.real:hover {
+      border-color: #d4af37;
+      color: #d4af37;
+    }
+    .cat-btn.dummy { opacity: 0.7; cursor: default; }
+
+    /* Product grid */
+    .product-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      padding-bottom: 24px;
+    }
+    .product-card {
+      background: #1e293b;
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .product-card.real { border-color: rgba(212, 175, 55, 0.3); }
+    .card-body { padding: 12px; flex: 1; display: flex; flex-direction: column; }
+    .card-icon { font-size: 18px; margin-bottom: 4px; }
+    .card-title { font-size: 15px; font-weight: 600; color: #f1f5f9; margin: 0 0 4px; }
+    .card-desc { font-size: 11px; color: #94a3b8; margin: 0 0 8px; line-height: 1.35; }
+    .card-price { font-size: 14px; font-weight: 600; color: #f1f5f9; margin-bottom: 8px; }
+    .card-img-wrap {
+      position: relative;
+      height: 100px;
+      background: #334155;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .card-img-wrap img.card-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .card-badge {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid #d4af37;
+      background: rgba(15, 23, 42, 0.9);
+      color: #d4af37;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .card-ar-btn {
+      display: block;
+      width: 100%;
+      padding: 10px 12px;
+      margin-top: auto;
+      border-radius: 999px;
+      border: 2px solid #d4af37;
+      background: transparent;
+      color: #d4af37;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      text-align: center;
+    }
+    .card-ar-btn:hover { background: rgba(212, 175, 55, 0.15); }
+    .card-actions { display: grid; gap: 8px; padding: 10px 12px 12px; }
+    .card-add-btn {
+      display: block;
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border: none;
+      background: #f97316;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .card-add-btn:hover { opacity: 0.95; }
+
+    /* Cart */
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .cart-btn {
+      position: relative;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      background: rgba(15, 23, 42, 0.8);
+      color: #f9fafb;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cart-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: #ef4444;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
+    }
+    .cart-badge.hidden { display: none; }
+
+    /* Cart drawer */
+    .cart-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s, visibility 0.2s;
+    }
+    .cart-overlay.open { opacity: 1; visibility: visible; }
+    .cart-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 100%;
+      max-width: 360px;
+      height: 100vh;
+      background: #0f172a;
+      border-left: 1px solid rgba(148, 163, 184, 0.3);
+      z-index: 101;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.25s ease-out;
+    }
+    .cart-drawer.open { transform: translateX(0); }
+    .cart-drawer-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .cart-drawer-title { font-size: 18px; font-weight: 600; }
+    .cart-close {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: none;
+      background: rgba(51, 65, 85, 0.8);
+      color: #e5e7eb;
+      font-size: 18px;
+      cursor: pointer;
+    }
+    .cart-drawer-body { flex: 1; overflow-y: auto; padding: 16px; }
+    .cart-empty { text-align: center; color: #94a3b8; padding: 24px 0; font-size: 14px; }
+    .cart-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    }
+    .cart-item-price { color: #d4af37; font-weight: 600; }
+    .cart-drawer-footer {
+      padding: 16px 20px;
+      border-top: 1px solid rgba(148, 163, 184, 0.3);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .cart-total { display: flex; justify-content: space-between; font-size: 16px; font-weight: 600; }
+    .place-order-btn {
+      width: 100%;
+      padding: 14px 20px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(to right, #d4af37, #b8860b);
+      color: #0f172a;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .place-order-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Bottom nav */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      max-width: 480px;
+      margin: 0 auto;
+      height: 64px;
+      background: #1e293b;
+      border-top: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 20px 20px 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 8px 0;
+      z-index: 50;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      color: #94a3b8;
+      font-size: 11px;
+      text-decoration: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 6px 12px;
+      font-family: inherit;
+    }
+    .nav-item span.icon { font-size: 22px; }
+    .nav-item.active { color: #d4af37; }
+    .nav-item.active .icon-wrap {
+      background: rgba(212, 175, 55, 0.2);
+      border-radius: 12px;
+      padding: 4px 12px;
+    }
+    .order-status-banner {
+      display: none;
+      padding: 10px 16px;
+      margin: 0 16px 12px;
+      max-width: 480px;
+      margin-left: auto;
+      margin-right: auto;
+      background: rgba(30, 41, 59, 0.95);
+      border: 1px solid rgba(212, 175, 55, 0.4);
+      border-radius: 12px;
+      font-size: 13px;
+      color: #e2e8f0;
+    }
+    .order-status-banner.visible { display: block; }
+    .order-status-banner strong { color: #d4af37; }
+    .user-toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 200;
+      padding: 12px 18px;
+      border-radius: 12px;
+      background: #0f172a;
+      color: #f1f5f9;
+      font-size: 13px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+      max-width: 90%;
+    }
+    .user-toast.show { opacity: 1; }
+    .watermark {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      width: 100px;
+      height: 100px;
+      opacity: 1;
+      pointer-events: none;
+      z-index: 40;
+    }
+    .watermark img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+  </style>
+</head>
+<body>
+  <div class="watermark" aria-hidden="true">
+    <img src="Brand1.png" alt="">
+  </div>
+  <div class="top-bar">Home</div>
+
+  <div class="order-status-banner" id="order-status-banner">
+    <strong>Order #<span id="order-status-id"></span></strong> (Table <span id="order-status-table"></span>) – Stage: <span id="order-status-stage">—</span>
+  </div>
+
+  <div class="page">
+    <header>
+      <div class="Brand1-logo">IXR</div>
+      <div class="Brand1-text">Innovify XR AR</div>
+      <div class="header-right">
+        <button type="button" class="cart-btn" id="cart-btn" aria-label="Cart">
+          🛒
+          <span class="cart-badge hidden" id="cart-badge">0</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Promo banner -->
+    <section class="promo-banner">
+      <div class="promo-text-wrap">
+        <div class="promo-label">Innovify XR</div>
+        <div class="promo-offer">60% OFF</div>
+        <div class="promo-sub">– New AR Experience Dish</div>
+        <a href="#order" class="promo-btn">Order Now</a>
+      </div>
+      <img src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=300&q=80" alt="Burger" class="promo-img">
+    </section>
+    <div class="carousel-dots">
+      <span class="active"></span>
+      <span></span>
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+
+    <!-- Category tabs (dynamic) -->
+    <div class="categories" id="categories"></div>
+
+    <!-- Product grid (dynamic) -->
+    <div class="product-grid" id="product-grid"></div>
+  </div>
+
+  <!-- Cart drawer -->
+  <div class="cart-overlay" id="cart-overlay"></div>
+  <div class="cart-drawer" id="cart-drawer">
+    <div class="cart-drawer-header">
+      <h2 class="cart-drawer-title">Your Cart</h2>
+      <button type="button" class="cart-close" id="cart-close">×</button>
+    </div>
+    <div class="cart-drawer-body" id="cart-list">
+      <div class="cart-empty" id="cart-empty">Cart is empty. Add items from AR screen!</div>
+      <div id="cart-items"></div>
+    </div>
+    <div class="cart-drawer-footer">
+      <div class="cart-total">
+        <span>Total</span>
+        <span id="cart-total-amount">Rs 0</span>
+      </div>
+      <button type="button" class="place-order-btn" id="place-order-btn" disabled>Place Order</button>
+    </div>
+  </div>
+
+  <!-- Bottom nav -->
+  <nav class="bottom-nav">
+    <a href="index.html" class="nav-item active">
+      <span class="icon-wrap"><span class="icon">🏠</span></span>
+      Home
+    </a>
+    <button type="button" class="nav-item" aria-label="Search"><span class="icon">🔍</span> Search</button>
+    <button type="button" class="nav-item" aria-label="Notifications"><span class="icon">🔔</span> Notifications</button>
+    <button type="button" class="nav-item" id="nav-cart" aria-label="Cart"><span class="icon">🛒</span> Cart</button>
+    <button type="button" class="nav-item" aria-label="Profile"><span class="icon">👤</span> Profile</button>
+  </nav>
+
+  <div class="user-toast" id="user-toast"></div>
+
+  <script>
+    const CART_KEY = 'foodar_cart';
+    const LAST_ORDER_KEY = 'foodar_last_order';
+
+    function getLastOrder() {
+      try {
+        const raw = localStorage.getItem(LAST_ORDER_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (_) { return null; }
+    }
+    function setLastOrder(orderId, tableNumber) {
+      localStorage.setItem(LAST_ORDER_KEY, JSON.stringify({ orderId: orderId, tableNumber: tableNumber }));
+    }
+
+    function getCart() {
+      try {
+        const raw = localStorage.getItem(CART_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch (_) { return []; }
+    }
+    function saveCart(items) {
+      localStorage.setItem(CART_KEY, JSON.stringify(items));
+      updateCartUI();
+    }
+    function updateCartUI() {
+      const cart = getCart();
+      const badge = document.getElementById('cart-badge');
+      const emptyEl = document.getElementById('cart-empty');
+      const itemsEl = document.getElementById('cart-items');
+      const totalEl = document.getElementById('cart-total-amount');
+      const placeBtn = document.getElementById('place-order-btn');
+      const count = cart.length;
+      badge.textContent = count;
+      badge.classList.toggle('hidden', count === 0);
+      placeBtn.disabled = count === 0;
+      if (cart.length === 0) {
+        emptyEl.style.display = 'block';
+        itemsEl.innerHTML = '';
+        totalEl.textContent = 'Rs 0';
+        return;
+      }
+      emptyEl.style.display = 'none';
+      const total = cart.reduce(function (sum, i) { return sum + (i.price || 0); }, 0);
+      totalEl.textContent = 'Rs ' + total.toLocaleString();
+      itemsEl.innerHTML = cart.map(function (i) {
+        return '<div class="cart-item"><span class="cart-item-name">' + (i.emoji || '') + ' ' + (i.name || i.id) + '</span><span class="cart-item-price">Rs ' + (i.price || 0) + '</span></div>';
+      }).join('');
+    }
+    function openCart() {
+      document.getElementById('cart-overlay').classList.add('open');
+      document.getElementById('cart-drawer').classList.add('open');
+    }
+
+    function addItemToCart(item) {
+      var cart = getCart();
+      cart.push({
+        id: item.id,
+        name: item.name,
+        price: Number(item.price) || 0,
+        emoji: item.emoji || '🍽️'
+      });
+      saveCart(cart);
+      showUserToast(item.name + ' cart me add ho gaya.');
+    }
+    function closeCart() {
+      document.getElementById('cart-overlay').classList.remove('open');
+      document.getElementById('cart-drawer').classList.remove('open');
+    }
+    document.getElementById('cart-btn').addEventListener('click', openCart);
+    document.getElementById('cart-close').addEventListener('click', closeCart);
+    document.getElementById('cart-overlay').addEventListener('click', closeCart);
+    document.getElementById('nav-cart').addEventListener('click', openCart);
+    document.getElementById('place-order-btn').addEventListener('click', async function () {
+      const cart = getCart();
+      if (!cart.length) return;
+      const tableNumber = prompt('Table number enter karein (e.g. 5, A2):');
+      if (!tableNumber) return;
+      const total = cart.reduce(function (sum, i) { return sum + (i.price || 0); }, 0);
+      try {
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tableNumber: tableNumber, items: cart, total: total })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.message || 'Order failed');
+        setLastOrder(data.order.id, data.order.tableNumber);
+        showUserToast('Order placed! Table ' + data.order.tableNumber);
+        saveCart([]);
+        closeCart();
+        updateOrderStatusBanner();
+        startOrderStatusPolling();
+      } catch (err) {
+        alert('Order place nahi ho saka. Thori dair baad try karein.');
+        console.error(err);
+      }
+    });
+
+    function showUserToast(msg) {
+      var el = document.getElementById('user-toast');
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(function () { el.classList.remove('show'); }, 3000);
+    }
+
+    function statusLabel(s) {
+      var v = (s || '').toLowerCase();
+      if (v === 'pending') return 'New';
+      if (v === 'in_process') return 'In Process';
+      if (v === 'delivered') return 'Delivered';
+      if (v === 'completed' || v === 'done') return 'Completed';
+      return s || '—';
+    }
+
+    function statusNotifyMsg(s) {
+      var v = (s || '').toLowerCase();
+      if (v === 'in_process') return 'Aapka order ab In Process hai.';
+      if (v === 'delivered') return 'Aapka order deliver ho gaya!';
+      if (v === 'completed' || v === 'done') return 'Order complete. Thank you!';
+      return 'Order stage: ' + statusLabel(s);
+    }
+
+    var orderStatusPollTimer = null;
+    var lastSeenOrderStatus = null;
+
+    function updateOrderStatusBanner() {
+      var last = getLastOrder();
+      var banner = document.getElementById('order-status-banner');
+      var idEl = document.getElementById('order-status-id');
+      var tableEl = document.getElementById('order-status-table');
+      var stageEl = document.getElementById('order-status-stage');
+      if (!last || !banner || !idEl || !tableEl || !stageEl) return;
+      banner.classList.add('visible');
+      idEl.textContent = last.orderId;
+      tableEl.textContent = last.tableNumber;
+      stageEl.textContent = '…';
+    }
+
+    function pollOrderStatus() {
+      var last = getLastOrder();
+      if (!last || !last.orderId) return;
+      fetch('/api/orders/' + last.orderId)
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.ok || !data.order) return;
+          var order = data.order;
+          var idEl = document.getElementById('order-status-id');
+          var tableEl = document.getElementById('order-status-table');
+          var stageEl = document.getElementById('order-status-stage');
+          if (idEl) idEl.textContent = order.id;
+          if (tableEl) tableEl.textContent = order.tableNumber;
+          if (stageEl) stageEl.textContent = statusLabel(order.status);
+          if (lastSeenOrderStatus !== null && lastSeenOrderStatus !== order.status) {
+            showUserToast(statusNotifyMsg(order.status));
+          }
+          lastSeenOrderStatus = order.status;
+        })
+        .catch(function () {});
+    }
+
+    function startOrderStatusPolling() {
+      if (orderStatusPollTimer) clearInterval(orderStatusPollTimer);
+      pollOrderStatus();
+      orderStatusPollTimer = setInterval(pollOrderStatus, 8000);
+    }
+
+    var last = getLastOrder();
+    if (last && last.orderId) {
+      updateOrderStatusBanner();
+      startOrderStatusPolling();
+    }
+
+    var menuItems = [];
+    var categoryItems = [];
+    var activeFilter = 'all';
+
+    function normalizeCategory(category) {
+      return String(category || 'other').trim().toLowerCase();
+    }
+
+    function renderCategoryButtons(categories) {
+      var categoriesEl = document.getElementById('categories');
+      if (!categoriesEl) return;
+      var buttons = ['<button type="button" class="cat-btn real ' + (activeFilter === 'all' ? 'active' : '') + '" data-filter="all">All Dishes</button>'];
+      (categories || []).forEach(function (catObj) {
+        var cat = normalizeCategory(catObj.id || catObj.name);
+        var label = catObj.name || cat;
+        buttons.push('<button type="button" class="cat-btn real ' + (activeFilter === cat ? 'active' : '') + '" data-filter="' + cat + '">' + label + '</button>');
+      });
+      categoriesEl.innerHTML = buttons.join('');
+    }
+
+    function renderMenuCards(items) {
+      var grid = document.getElementById('product-grid');
+      if (!grid) return;
+      if (!items.length) {
+        grid.innerHTML = '<div class="cart-empty" style="grid-column:1 / -1;">No menu items available.</div>';
+        return;
+      }
+      var filtered = items.filter(function (item) {
+        if (activeFilter === 'all') return true;
+        return normalizeCategory(item.category) === activeFilter;
+      });
+      if (!filtered.length) {
+        grid.innerHTML = '<div class="cart-empty" style="grid-column:1 / -1;">No items in this category.</div>';
+        return;
+      }
+      grid.innerHTML = filtered.map(function (item) {
+        var image = item.image || '';
+        var safeName = item.name || 'Menu Item';
+        var category = normalizeCategory(item.category);
+        return '<article class="product-card real" data-category="' + category + '">' +
+          '<div class="card-body">' +
+            '<h3 class="card-title">' + safeName + '</h3>' +
+            '<p class="card-desc">Freshly added from admin menu.</p>' +
+            '<div class="card-price">Rs ' + (Number(item.price) || 0) + '</div>' +
+          '</div>' +
+          '<div class="card-img-wrap">' +
+            '<img src="' + image + '" alt="' + safeName + '" class="card-img">' +
+            '<span class="card-badge">' + category + '</span>' +
+          '</div>' +
+          '<div class="card-actions">' +
+            '<button type="button" class="card-add-btn" data-add-id="' + item.id + '">Add to Cart</button>' +
+            '<a href="arscreen.html?item=' + encodeURIComponent(item.id) + '" class="card-ar-btn">View in AR &gt;</a>' +
+          '</div>' +
+        '</article>';
+      }).join('');
+    }
+
+    async function loadMenuItems() {
+      try {
+        var res = await fetch('/api/menu');
+        var data = await res.json();
+        if (!res.ok || !data.success) throw new Error('Failed');
+        menuItems = data.items || [];
+        renderMenuCards(menuItems);
+      } catch (_) {
+        var grid = document.getElementById('product-grid');
+        if (grid) {
+          grid.innerHTML = '<div class="cart-empty" style="grid-column:1 / -1;">Unable to load menu.</div>';
+        }
+      }
+    }
+
+    async function loadCategories() {
+      try {
+        var res = await fetch('/api/categories');
+        var data = await res.json();
+        if (!res.ok || !data.success) throw new Error('Failed');
+        categoryItems = data.items || [];
+        var valid = categoryItems.some(function (c) {
+          return normalizeCategory(c.id || c.name) === activeFilter;
+        });
+        if (activeFilter !== 'all' && !valid) activeFilter = 'all';
+        renderCategoryButtons(categoryItems);
+      } catch (_) {
+        categoryItems = [];
+        renderCategoryButtons([]);
+      }
+    }
+
+    document.getElementById('categories').addEventListener('click', function (e) {
+      var btn = e.target.closest('.cat-btn');
+      if (!btn) return;
+      activeFilter = btn.getAttribute('data-filter') || 'all';
+      renderCategoryButtons(categoryItems);
+      renderMenuCards(menuItems);
+    });
+
+    document.getElementById('product-grid').addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-add-id]');
+      if (!btn) return;
+      var id = btn.getAttribute('data-add-id');
+      var found = menuItems.find(function (item) { return item.id === id; });
+      if (!found) return;
+      addItemToCart(found);
+    });
+
+    updateCartUI();
+    Promise.all([loadCategories(), loadMenuItems()]);
+  </script>
+</body>
+</html>

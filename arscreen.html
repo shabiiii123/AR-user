@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Item Detail – Innovify XR AR</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <script type="module" src="https://unpkg.com/@google/model-viewer@3.4.0/dist/model-viewer.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 35%, #020617 100%);
+      color: #f1f5f9;
+      min-height: 100vh;
+      padding-bottom: 24px;
+    }
+    .page {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 12px 16px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0 16px;
+    }
+    .back-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      background: rgba(15, 23, 42, 0.8);
+      color: #e2e8f0;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+    }
+    .back-btn:hover { background: rgba(30, 41, 59, 0.9); }
+    .page-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin: 0;
+    }
+    .header-spacer { width: 40px; }
+    .product-model-wrap {
+      width: 100%;
+      margin: 16px 0 24px;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #1e293b;
+    }
+    .product-model-wrap model-viewer {
+      width: 100%;
+      height: 280px;
+      display: block;
+    }
+    .product-image-wrap {
+      margin: 10px 0 16px;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: #0f172a;
+    }
+    .product-image-wrap img {
+      display: block;
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+    }
+    .watermark {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      width: 100px;
+      height: 100px;
+      opacity: 1;
+      pointer-events: none;
+      z-index: 40;
+    }
+    .watermark img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .product-name {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin: 0 0 8px;
+    }
+    .product-desc {
+      font-size: 14px;
+      color: #94a3b8;
+      line-height: 1.5;
+      margin: 0 0 20px;
+    }
+    .size-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: #e2e8f0;
+      margin-bottom: 10px;
+    }
+    .size-btns {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .size-btn {
+      padding: 10px 20px;
+      border-radius: 999px;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #e2e8f0;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .size-btn.active {
+      border-color: #d4af37;
+      color: #d4af37;
+      background: rgba(212, 175, 55, 0.1);
+    }
+    .size-btn:hover:not(.active) {
+      border-color: #475569;
+    }
+    .total-price {
+      font-size: 18px;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 20px;
+    }
+    .model-size-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      padding: 12px 16px;
+      background: rgba(30, 41, 59, 0.6);
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+    .model-size-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: #e2e8f0;
+      flex: 1;
+    }
+    .model-size-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .model-size-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      border: 1px solid #d4af37;
+      background: rgba(212, 175, 55, 0.15);
+      color: #d4af37;
+      font-size: 20px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .model-size-btn:hover { background: rgba(212, 175, 55, 0.25); }
+    .model-size-value {
+      min-width: 48px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #f1f5f9;
+      text-align: center;
+    }
+    .action-btns {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .ar-experience-btn {
+      width: 100%;
+      padding: 16px 24px;
+      border-radius: 14px;
+      border: none;
+      background: linear-gradient(135deg, #d4af37, #b8860b);
+      color: #0f172a;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .ar-experience-btn:hover { opacity: 0.95; }
+    .ar-experience-btn .ar-icon {
+      font-size: 18px;
+      opacity: 0.9;
+    }
+    .add-to-cart-btn {
+      width: 100%;
+      padding: 16px 24px;
+      border-radius: 14px;
+      border: 2px solid rgba(148, 163, 184, 0.5);
+      background: rgba(30, 41, 59, 0.8);
+      color: #e2e8f0;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .add-to-cart-btn:hover { background: rgba(51, 65, 85, 0.9); }
+    .add-to-cart-btn.added {
+      background: rgba(34, 197, 94, 0.2);
+      border-color: #22c55e;
+      color: #86efac;
+    }
+    .add-to-cart-msg {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #86efac;
+      text-align: center;
+    }
+      </style>
+</head>
+<body>
+  <div class="watermark" aria-hidden="true">
+    <img src="Brand1.png" alt="">
+  </div>
+  <div class="page">
+    <header class="header">
+      <a href="index.html" class="back-btn" aria-label="Back">&lt;</a>
+      <h1 class="page-title">Item Detail</h1>
+      <div class="header-spacer"></div>
+    </header>
+
+    <div class="product-model-wrap">
+      <model-viewer
+        id="viewer"
+        src=""
+        ar
+        ar-modes="scene-viewer quick-look webxr"
+        camera-controls
+        auto-rotate
+        shadow-intensity="1"
+        exposure="1"
+        environment-image="neutral"
+        alt="3D food model"
+      ></model-viewer>
+    </div>
+
+    <div class="product-image-wrap">
+      <img id="product-image" src="" alt="Food image" />
+    </div>
+
+    <h2 class="product-name" id="product-name"></h2>
+    <p class="product-desc" id="product-desc"></p>
+
+    <div class="size-label">Size</div>
+    <div class="size-btns">
+      <button type="button" class="size-btn active" data-size="small">Small</button>
+      <button type="button" class="size-btn" data-size="large">Large</button>
+      <button type="button" class="size-btn" data-size="l">L</button>
+      <button type="button" class="size-btn" data-size="xxl">XXL</button>
+    </div>
+
+    <div class="total-price">Total: <span id="total-price">Rs 850</span></div>
+
+    <div class="model-size-wrap">
+      <span class="model-size-label">AR Model Size</span>
+      <div class="model-size-controls">
+        <button type="button" class="model-size-btn" id="size-minus" aria-label="Decrease size">−</button>
+        <span class="model-size-value" id="size-value">0.3</span>
+        <button type="button" class="model-size-btn" id="size-plus" aria-label="Increase size">+</button>
+      </div>
+    </div>
+
+    <div class="action-btns">
+      <button type="button" class="ar-experience-btn" id="ar-btn">
+        Experience in AR
+        <span class="ar-icon">⊞</span>
+      </button>
+      <button type="button" class="add-to-cart-btn" id="add-to-cart-btn">Add to Cart</button>
+    </div>
+    <p class="add-to-cart-msg" id="add-to-cart-msg" style="display: none;"></p>
+  </div>
+
+  <script>
+    const CART_KEY = 'foodar_cart';
+
+    const params = new URLSearchParams(window.location.search);
+    const itemId = (params.get('item') || '').toLowerCase();
+
+    const productName = document.getElementById('product-name');
+    const productDesc = document.getElementById('product-desc');
+    const totalPriceEl = document.getElementById('total-price');
+    const arBtn = document.getElementById('ar-btn');
+    const addToCartBtn = document.getElementById('add-to-cart-btn');
+    const addToCartMsg = document.getElementById('add-to-cart-msg');
+    const viewer = document.getElementById('viewer');
+    const sizeMinusBtn = document.getElementById('size-minus');
+    const sizePlusBtn = document.getElementById('size-plus');
+    const sizeValueEl = document.getElementById('size-value');
+    const productImageEl = document.getElementById('product-image');
+
+    let currentItem = null;
+    var modelScale = 0.5;
+    var scaleMin = 0.1;
+    var scaleMax = 2;
+    var scaleStep = 0.05;
+
+    function applyScale() {
+      var s = modelScale.toFixed(2);
+      var scaleStr = s + ' ' + s + ' ' + s;
+      viewer.setAttribute('scale', scaleStr);
+      sizeValueEl.textContent = s;
+      if (viewer.updateFraming) viewer.updateFraming();
+    }
+
+    function setArAvailability(hasModel) {
+      if (hasModel) {
+        arBtn.disabled = false;
+        arBtn.style.opacity = '1';
+      } else {
+        arBtn.disabled = true;
+        arBtn.style.opacity = '0.6';
+      }
+    }
+
+    async function loadItem() {
+      try {
+        const res = await fetch('/api/menu');
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error('Failed');
+        const items = data.items || [];
+        const found = items.find(function (item) {
+          return String(item.id || '').toLowerCase() === itemId;
+        });
+        currentItem = found || items[0] || null;
+        if (!currentItem) throw new Error('No item');
+
+        productName.textContent = currentItem.name || 'Menu Item';
+        productDesc.textContent = 'Category: ' + (currentItem.category || 'food') + '. Experience this dish in AR.';
+        totalPriceEl.textContent = 'Rs ' + (Number(currentItem.price) || 0);
+        productImageEl.src = currentItem.image || '';
+        productImageEl.alt = currentItem.name || 'Food image';
+
+        if (currentItem.model) {
+          viewer.src = currentItem.model;
+          setArAvailability(true);
+        } else {
+          viewer.removeAttribute('src');
+          setArAvailability(false);
+        }
+
+        modelScale = 0.5;
+        applyScale();
+      } catch (err) {
+        productName.textContent = 'Item unavailable';
+        productDesc.textContent = 'Menu item load nahi ho saka. Please back ja kar dobara try karein.';
+        totalPriceEl.textContent = 'Rs 0';
+        setArAvailability(false);
+      }
+    }
+
+    sizeMinusBtn.addEventListener('click', function () {
+      modelScale = Math.max(scaleMin, modelScale - scaleStep);
+      applyScale();
+    });
+    sizePlusBtn.addEventListener('click', function () {
+      modelScale = Math.min(scaleMax, modelScale + scaleStep);
+      applyScale();
+    });
+
+    viewer.addEventListener('load', function () { applyScale(); });
+
+    document.querySelectorAll('.size-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.size-btn').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+      });
+    });
+
+    function getCart() {
+      try {
+        const raw = localStorage.getItem(CART_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch (_) { return []; }
+    }
+    function saveCart(items) {
+      localStorage.setItem(CART_KEY, JSON.stringify(items));
+    }
+
+    arBtn.addEventListener('click', function () {
+      if (!currentItem || !currentItem.model) {
+        alert('Is item ke liye AR model available nahi hai.');
+        return;
+      }
+      if (viewer.canActivateAR) {
+        viewer.activateAR();
+      } else {
+        alert('Is device/browser par AR available nahi hai. HTTPS + Android Chrome ya iOS Safari try karein.');
+      }
+    });
+
+    addToCartBtn.addEventListener('click', function () {
+      if (!currentItem) return;
+      const cart = getCart();
+      cart.push({
+        id: currentItem.id,
+        name: currentItem.name,
+        price: Number(currentItem.price) || 0,
+        emoji: '🍽️'
+      });
+      saveCart(cart);
+      addToCartBtn.textContent = 'Added!';
+      addToCartBtn.classList.add('added');
+      addToCartMsg.textContent = currentItem.name + ' cart me add ho gaya.';
+      addToCartMsg.style.display = 'block';
+      setTimeout(function () {
+        addToCartBtn.textContent = 'Add to Cart';
+        addToCartBtn.classList.remove('added');
+        addToCartMsg.style.display = 'none';
+      }, 2000);
+    });
+
+    loadItem();
+  </script>
+</body>
+</html>
