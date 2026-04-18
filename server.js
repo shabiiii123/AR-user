@@ -171,6 +171,62 @@ app.post('/api/menu', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'mo
   res.json({ success: true, item: newItem });
 });
 
+app.put('/api/menu/:id', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'model', maxCount: 1 }]), (req, res) => {
+  const itemId = String(req.params.id || '').trim();
+  const itemIndex = menuItems.findIndex((item) => String(item.id) === itemId);
+
+  if (itemIndex === -1) {
+    return res.status(404).json({ success: false, message: 'Menu item not found' });
+  }
+
+  const body = req.body || {};
+  const name = String(body.name || '').trim();
+  const category = String(body.category || '').trim();
+  const categoryId = normalizeCategoryId(category);
+  const price = Number(body.price);
+
+  if (!name || !Number.isFinite(price) || price < 0) {
+    return res.status(400).json({ success: false, message: 'Invalid menu item payload' });
+  }
+
+  const categoryExists = categories.some((c) => c.id === categoryId);
+  if (!categoryExists) {
+    return res.status(400).json({ success: false, message: 'Selected category does not exist' });
+  }
+
+  const imageFile = req.files && req.files.image && req.files.image[0];
+  const modelFile = req.files && req.files.model && req.files.model[0];
+  const existingItem = menuItems[itemIndex];
+
+  const nextImage = imageFile ? '/public/images/' + imageFile.filename : String(body.image || '').trim();
+  const nextModel = modelFile ? '/public/models/' + modelFile.filename : String(body.model || '').trim();
+
+  const updatedItem = {
+    ...existingItem,
+    name,
+    price,
+    category: categoryId,
+    image: nextImage || existingItem.image || '',
+    model: nextModel || existingItem.model || '',
+    updatedAt: new Date().toISOString()
+  };
+
+  menuItems[itemIndex] = updatedItem;
+  res.json({ success: true, item: updatedItem });
+});
+
+app.delete('/api/menu/:id', (req, res) => {
+  const itemId = String(req.params.id || '').trim();
+  const itemIndex = menuItems.findIndex((item) => String(item.id) === itemId);
+
+  if (itemIndex === -1) {
+    return res.status(404).json({ success: false, message: 'Menu item not found' });
+  }
+
+  const removedItem = menuItems.splice(itemIndex, 1)[0];
+  res.json({ success: true, item: removedItem });
+});
+
 app.get('/api/waiters', (req, res) => {
   res.json({ success: true, items: waiters });
 });
@@ -894,9 +950,16 @@ app.get('/admin', (req, res) => {
     const menuForm = document.getElementById('menu-form');
     const menuToggleFormBtn = document.getElementById('menu-toggle-form');
     const menuCancelFormBtn = document.getElementById('menu-cancel-form');
+    const menuFormSubmitBtn = menuForm ? menuForm.querySelector('button[type="submit"]') : null;
+    const menuNameInput = menuForm ? menuForm.querySelector('input[name="name"]') : null;
+    const menuPriceInput = menuForm ? menuForm.querySelector('input[name="price"]') : null;
+    const menuImageInput = menuForm ? menuForm.querySelector('input[name="image"]') : null;
+    const menuModelInput = menuForm ? menuForm.querySelector('input[name="model"]') : null;
     const categoryForm = document.getElementById('category-form');
     const categoryListRoot = document.getElementById('category-list-root');
     const menuCategorySelect = document.getElementById('menu-category-select');
+    let currentEditingMenuId = null;
+    let currentMenuItems = [];
 
     const waiterListRoot = document.getElementById('waiter-list-root');
     const waiterForm = document.getElementById('waiter-form');
@@ -907,6 +970,28 @@ app.get('/admin', (req, res) => {
     const tableForm = document.getElementById('table-form');
     const tableToggleFormBtn = document.getElementById('table-toggle-form');
     const tableCancelFormBtn = document.getElementById('table-cancel-form');
+
+    function setMenuFormMode(editing) {
+      if (!menuToggleFormBtn || !menuFormSubmitBtn || !menuImageInput) return;
+      if (editing) {
+        menuToggleFormBtn.textContent = 'Edit Item';
+        menuFormSubmitBtn.textContent = 'Update';
+        menuImageInput.removeAttribute('required');
+      } else {
+        menuToggleFormBtn.textContent = 'Add New Item';
+        menuFormSubmitBtn.textContent = 'Save';
+        menuImageInput.setAttribute('required', 'required');
+      }
+    }
+
+    function resetMenuFormState() {
+      currentEditingMenuId = null;
+      if (menuForm) {
+        menuForm.reset();
+        menuForm.style.display = 'none';
+      }
+      setMenuFormMode(false);
+    }
 
     function renderMenuList(items) {
       if (!menuListRoot) return;
@@ -922,10 +1007,14 @@ app.get('/admin', (req, res) => {
           '<td>' + (item.category || '-') + '</td>' +
           '<td>Rs ' + (item.price || 0) + '</td>' +
           '<td>' + (item.model ? '<span class="badge">Model</span>' : '<span class="muted">No model</span>') + '</td>' +
+          '<td style="white-space:nowrap;">' +
+            '<button type="button" data-edit-menu="' + item.id + '" style="border:1px solid #d1d5db;background:white;color:#111827;border-radius:8px;padding:4px 8px;font-size:11px;cursor:pointer;margin-right:6px;">Edit</button>' +
+            '<button type="button" data-delete-menu="' + item.id + '" style="border:1px solid #fecaca;background:#fff1f2;color:#b91c1c;border-radius:8px;padding:4px 8px;font-size:11px;cursor:pointer;">Delete</button>' +
+          '</td>' +
           '</tr>';
       }).join('');
       menuListRoot.innerHTML =
-        '<table><thead><tr><th>Image</th><th>Name</th><th>Category</th><th>Price</th><th>AR</th></tr></thead><tbody>' + rows + '</tbody></table>';
+        '<table><thead><tr><th>Image</th><th>Name</th><th>Category</th><th>Price</th><th>AR</th><th>Actions</th></tr></thead><tbody>' + rows + '</tbody></table>';
     }
 
     async function fetchMenuItems() {
@@ -933,7 +1022,8 @@ app.get('/admin', (req, res) => {
         const res = await fetch('/api/menu');
         const data = await res.json();
         if (!res.ok || !data.success) throw new Error('Failed');
-        renderMenuList(data.items || []);
+        currentMenuItems = data.items || [];
+        renderMenuList(currentMenuItems);
       } catch (err) {
         if (menuListRoot) menuListRoot.innerHTML = '<div class="muted">Error loading menu items.</div>';
       }
@@ -975,14 +1065,15 @@ app.get('/admin', (req, res) => {
       menuToggleFormBtn.addEventListener('click', function () {
         if (!menuForm) return;
         menuForm.style.display = menuForm.style.display === 'none' ? 'block' : 'none';
+        if (menuForm.style.display === 'block' && menuNameInput) {
+          menuNameInput.focus();
+        }
       });
     }
 
     if (menuCancelFormBtn) {
       menuCancelFormBtn.addEventListener('click', function () {
-        if (!menuForm) return;
-        menuForm.reset();
-        menuForm.style.display = 'none';
+        resetMenuFormState();
       });
     }
 
@@ -990,17 +1081,63 @@ app.get('/admin', (req, res) => {
       menuForm.addEventListener('submit', async function (e) {
         e.preventDefault();
         const fd = new FormData(menuForm);
+        const isEditMode = !!currentEditingMenuId;
+        const endpoint = isEditMode
+          ? '/api/menu/' + encodeURIComponent(currentEditingMenuId)
+          : '/api/menu';
+        const method = isEditMode ? 'PUT' : 'POST';
         try {
-          const res = await fetch('/api/menu', { method: 'POST', body: fd });
+          const res = await fetch(endpoint, { method: method, body: fd });
           const data = await res.json();
           if (!res.ok || !data.success) throw new Error(data.message || 'Failed');
-          menuForm.reset();
-          menuForm.style.display = 'none';
-          showToast('Menu item added: ' + (data.item && data.item.name ? data.item.name : 'Saved'));
+          const itemName = data.item && data.item.name ? data.item.name : 'Saved';
+          resetMenuFormState();
+          showToast(isEditMode ? 'Menu item updated: ' + itemName : 'Menu item added: ' + itemName);
           fetchMenuItems();
           fetchCategories();
         } catch (err) {
-          showToast('Unable to save menu item');
+          showToast(err && err.message ? err.message : 'Unable to save menu item');
+        }
+      });
+    }
+
+    if (menuListRoot) {
+      menuListRoot.addEventListener('click', async function (e) {
+        const editBtn = e.target.closest('[data-edit-menu]');
+        if (editBtn) {
+          const id = editBtn.getAttribute('data-edit-menu');
+          if (!id) return;
+          const item = currentMenuItems.find(function (menuItem) {
+            return String(menuItem.id) === String(id);
+          });
+          if (!item || !menuForm) return;
+          currentEditingMenuId = id;
+          setMenuFormMode(true);
+          menuForm.style.display = 'block';
+          if (menuNameInput) menuNameInput.value = item.name || '';
+          if (menuPriceInput) menuPriceInput.value = item.price || 0;
+          if (menuCategorySelect) menuCategorySelect.value = item.category || '';
+          if (menuModelInput) menuModelInput.value = '';
+          if (menuImageInput) menuImageInput.value = '';
+          if (menuNameInput) menuNameInput.focus();
+          return;
+        }
+
+        const deleteBtn = e.target.closest('[data-delete-menu]');
+        if (!deleteBtn) return;
+        const id = deleteBtn.getAttribute('data-delete-menu');
+        if (!id) return;
+        try {
+          const res = await fetch('/api/menu/' + encodeURIComponent(id), { method: 'DELETE' });
+          const data = await res.json();
+          if (!res.ok || !data.success) throw new Error(data.message || 'Failed');
+          if (currentEditingMenuId === id) {
+            resetMenuFormState();
+          }
+          showToast('Menu item deleted: ' + ((data.item && data.item.name) || 'Removed'));
+          fetchMenuItems();
+        } catch (err) {
+          showToast(err && err.message ? err.message : 'Unable to delete menu item');
         }
       });
     }
