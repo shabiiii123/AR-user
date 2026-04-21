@@ -1,30 +1,29 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
 const multer = require('multer');
+const { prisma } = require('./lib/prisma');
+const { uploadBuffer, isCloudinaryConfigured } = require('./lib/cloudinary');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+if (process.env.NODE_ENV === 'production') {
+  const required = ['DATABASE_URL', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'];
+  const missing = required.filter((key) => !process.env[key]);
+  if (missing.length) {
+    throw new Error('Missing required env vars: ' + missing.join(', '));
+  }
+}
 
 app.use(cors());
 app.use(express.json());
 
 const publicDir = path.join(__dirname, 'public');
-const imageUploadDir = path.join(publicDir, 'images');
-const modelUploadDir = path.join(publicDir, 'models');
-
-[publicDir, imageUploadDir, modelUploadDir].forEach((dir) => {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-});
 
 app.use('/public', express.static(publicDir));
 // Serve frontend files from this folder
 app.use(express.static(__dirname));
-
-// In-memory order store (for demo; replace with DB in production)
-let orders = [];
-let nextId = 1;
 
 const defaultMenuItems = [
   {
@@ -53,14 +52,6 @@ const defaultMenuItems = [
   }
 ];
 
-let menuItems = [...defaultMenuItems];
-let categories = Array.from(
-  new Set(defaultMenuItems.map((item) => String(item.category || '').trim().toLowerCase()).filter(Boolean))
-).map((name) => ({ id: name, name }));
-
-let waiters = [];
-let tables = [];
-
 function makeId(value) {
   const base = String(value || 'item').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'item';
   return base + '-' + Date.now().toString(36);
@@ -74,29 +65,107 @@ function normalizeCategoryId(value) {
     .replace(/(^-|-$)/g, '');
 }
 
-const uploadStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    if (file.fieldname === 'image') return cb(null, imageUploadDir);
-    if (file.fieldname === 'model') return cb(null, modelUploadDir);
-    return cb(new Error('Unsupported upload field'));
-  },
-  filename: (req, file, cb) => {
-    const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    cb(null, Date.now() + '-' + safe);
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 }
+});
+
+function mapMenuItem(record) {
+  return {
+    id: record.id,
+    name: record.name,
+    price: record.price,
+    category: record.categoryId,
+    image: record.imageUrl || '',
+    model: record.modelUrl || '',
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt
+  };
+}
+
+function mapOrder(record) {
+  return {
+    id: record.id,
+    tableNumber: record.tableNumber,
+    items: record.items.map((item) => ({
+      name: item.name,
+      qty: item.qty,
+      price: item.price
+    })),
+    total: record.total,
+    status: record.status,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt
+  };
+}
+
+async function uploadAsset(file, fieldname) {
+  if (!file) return '';
+  if (!isCloudinaryConfigured()) {
+    throw new Error('Cloudinary is not configured. Set CLOUDINARY_* environment variables.');
+  }
+  return uploadBuffer(file.buffer, {
+    folder: fieldname === 'image' ? 'food-ar/images' : 'food-ar/models',
+    resource_type: fieldname === 'image' ? 'image' : 'raw',
+    public_id: makeId(file.originalname || fieldname)
+  });
+}
+
+async function ensureSeedData() {
+  const existingCategories = await prisma.category.count();
+  if (!existingCategories) {
+    const uniqueCategoryIds = Array.from(
+      new Set(defaultMenuItems.map((item) => normalizeCategoryId(item.category)).filter(Boolean))
+    );
+    await prisma.$transaction(
+      uniqueCategoryIds.map((id) =>
+        prisma.category.create({
+          data: { id, name: id }
+        })
+      )
+    );
+  }
+
+  const existingMenu = await prisma.menuItem.count();
+  if (!existingMenu) {
+    await prisma.$transaction(
+      defaultMenuItems.map((item) =>
+        prisma.menuItem.create({
+          data: {
+            id: makeId(item.name),
+            name: item.name,
+            price: Number(item.price) || 0,
+            categoryId: normalizeCategoryId(item.category),
+            imageUrl: item.image || '',
+            modelUrl: item.model || ''
+          }
+        })
+      )
+    );
+  }
+}
+
+app.get('/api/menu', async (req, res) => {
+  try {
+    await ensureSeedData();
+    const items = await prisma.menuItem.findMany({ orderBy: { createdAt: 'desc' } });
+    res.json({ success: true, items: items.map(mapMenuItem) });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Unable to load menu items' });
   }
 });
 
-const upload = multer({ storage: uploadStorage });
-
-app.get('/api/menu', (req, res) => {
-  res.json({ success: true, items: menuItems });
+app.get('/api/categories', async (req, res) => {
+  try {
+    await ensureSeedData();
+    const items = await prisma.category.findMany({ orderBy: { createdAt: 'desc' } });
+    res.json({ success: true, items });
+  } catch (_) {
+    res.status(500).json({ success: false, message: 'Unable to load categories' });
+  }
 });
 
-app.get('/api/categories', (req, res) => {
-  res.json({ success: true, items: categories });
-});
-
-app.post('/api/categories', (req, res) => {
+app.post('/api/categories', async (req, res) => {
   const body = req.body || {};
   const name = String(body.name || '').trim();
   const id = normalizeCategoryId(name);
@@ -105,37 +174,81 @@ app.post('/api/categories', (req, res) => {
     return res.status(400).json({ success: false, message: 'Category name is required' });
   }
 
-  const exists = categories.some((category) => category.id === id);
-  if (exists) {
-    return res.status(409).json({ success: false, message: 'Category already exists' });
+  try {
+    const exists = await prisma.category.findUnique({ where: { id } });
+    if (exists) {
+      return res.status(409).json({ success: false, message: 'Category already exists' });
+    }
+    const item = await prisma.category.create({ data: { id, name } });
+    res.json({ success: true, item });
+  } catch (_) {
+    res.status(500).json({ success: false, message: 'Unable to add category' });
   }
-
-  const newCategory = { id, name };
-  categories.unshift(newCategory);
-  res.json({ success: true, item: newCategory });
 });
 
-app.delete('/api/categories/:id', (req, res) => {
+app.delete('/api/categories/:id', async (req, res) => {
   const categoryId = normalizeCategoryId(req.params.id);
-  const categoryIndex = categories.findIndex((category) => category.id === categoryId);
+  try {
+    const category = await prisma.category.findUnique({ where: { id: categoryId } });
+    if (!category) {
+      return res.status(404).json({ success: false, message: 'Category not found' });
+    }
 
-  if (categoryIndex === -1) {
-    return res.status(404).json({ success: false, message: 'Category not found' });
+    const inUse = await prisma.menuItem.count({ where: { categoryId } });
+    if (inUse) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete category because it is used by one or more menu items'
+      });
+    }
+
+    const removed = await prisma.category.delete({ where: { id: categoryId } });
+    res.json({ success: true, item: removed });
+  } catch (_) {
+    res.status(500).json({ success: false, message: 'Unable to delete category' });
+  }
+});
+
+app.post('/api/menu', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'model', maxCount: 1 }]), async (req, res) => {
+  const body = req.body || {};
+  const name = String(body.name || '').trim();
+  const category = String(body.category || '').trim();
+  const categoryId = normalizeCategoryId(category);
+  const price = Number(body.price);
+
+  if (!name || !Number.isFinite(price) || price < 0) {
+    return res.status(400).json({ success: false, message: 'Invalid menu item payload' });
   }
 
-  const inUse = menuItems.some((item) => normalizeCategoryId(item.category) === categoryId);
-  if (inUse) {
-    return res.status(400).json({
-      success: false,
-      message: 'Cannot delete category because it is used by one or more menu items'
+  try {
+    const categoryExists = await prisma.category.findUnique({ where: { id: categoryId } });
+    if (!categoryExists) {
+      return res.status(400).json({ success: false, message: 'Selected category does not exist' });
+    }
+
+    const imageFile = req.files && req.files.image && req.files.image[0];
+    const modelFile = req.files && req.files.model && req.files.model[0];
+    const image = imageFile ? await uploadAsset(imageFile, 'image') : String(body.image || '').trim();
+    const model = modelFile ? await uploadAsset(modelFile, 'model') : String(body.model || '').trim();
+
+    const item = await prisma.menuItem.create({
+      data: {
+        id: makeId(name),
+        name,
+        price,
+        categoryId,
+        imageUrl: image,
+        modelUrl: model
+      }
     });
+    res.json({ success: true, item: mapMenuItem(item) });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err && err.message ? err.message : 'Unable to save menu item' });
   }
-
-  const removed = categories.splice(categoryIndex, 1)[0];
-  res.json({ success: true, item: removed });
 });
 
-app.post('/api/menu', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'model', maxCount: 1 }]), (req, res) => {
+app.put('/api/menu/:id', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'model', maxCount: 1 }]), async (req, res) => {
+  const itemId = String(req.params.id || '').trim();
   const body = req.body || {};
   const name = String(body.name || '').trim();
   const category = String(body.category || '').trim();
@@ -146,92 +259,62 @@ app.post('/api/menu', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'mo
     return res.status(400).json({ success: false, message: 'Invalid menu item payload' });
   }
 
-  const categoryExists = categories.some((c) => c.id === categoryId);
-  if (!categoryExists) {
-    return res.status(400).json({ success: false, message: 'Selected category does not exist' });
+  try {
+    const existingItem = await prisma.menuItem.findUnique({ where: { id: itemId } });
+    if (!existingItem) {
+      return res.status(404).json({ success: false, message: 'Menu item not found' });
+    }
+
+    const categoryExists = await prisma.category.findUnique({ where: { id: categoryId } });
+    if (!categoryExists) {
+      return res.status(400).json({ success: false, message: 'Selected category does not exist' });
+    }
+
+    const imageFile = req.files && req.files.image && req.files.image[0];
+    const modelFile = req.files && req.files.model && req.files.model[0];
+    const nextImage = imageFile ? await uploadAsset(imageFile, 'image') : String(body.image || '').trim();
+    const nextModel = modelFile ? await uploadAsset(modelFile, 'model') : String(body.model || '').trim();
+
+    const updatedItem = await prisma.menuItem.update({
+      where: { id: itemId },
+      data: {
+        name,
+        price,
+        categoryId,
+        imageUrl: nextImage || existingItem.imageUrl || '',
+        modelUrl: nextModel || existingItem.modelUrl || ''
+      }
+    });
+    res.json({ success: true, item: mapMenuItem(updatedItem) });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err && err.message ? err.message : 'Unable to save menu item' });
   }
-
-  const imageFile = req.files && req.files.image && req.files.image[0];
-  const modelFile = req.files && req.files.model && req.files.model[0];
-
-  const image = imageFile ? '/public/images/' + imageFile.filename : String(body.image || '').trim();
-  const model = modelFile ? '/public/models/' + modelFile.filename : String(body.model || '').trim();
-
-  const newItem = {
-    id: makeId(name),
-    name,
-    price,
-    category: categoryId,
-    image,
-    model,
-    createdAt: new Date().toISOString()
-  };
-
-  menuItems.unshift(newItem);
-  res.json({ success: true, item: newItem });
 });
 
-app.put('/api/menu/:id', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'model', maxCount: 1 }]), (req, res) => {
+app.delete('/api/menu/:id', async (req, res) => {
   const itemId = String(req.params.id || '').trim();
-  const itemIndex = menuItems.findIndex((item) => String(item.id) === itemId);
-
-  if (itemIndex === -1) {
-    return res.status(404).json({ success: false, message: 'Menu item not found' });
+  try {
+    const existingItem = await prisma.menuItem.findUnique({ where: { id: itemId } });
+    if (!existingItem) {
+      return res.status(404).json({ success: false, message: 'Menu item not found' });
+    }
+    const removedItem = await prisma.menuItem.delete({ where: { id: itemId } });
+    res.json({ success: true, item: mapMenuItem(removedItem) });
+  } catch (_) {
+    res.status(500).json({ success: false, message: 'Unable to delete menu item' });
   }
-
-  const body = req.body || {};
-  const name = String(body.name || '').trim();
-  const category = String(body.category || '').trim();
-  const categoryId = normalizeCategoryId(category);
-  const price = Number(body.price);
-
-  if (!name || !Number.isFinite(price) || price < 0) {
-    return res.status(400).json({ success: false, message: 'Invalid menu item payload' });
-  }
-
-  const categoryExists = categories.some((c) => c.id === categoryId);
-  if (!categoryExists) {
-    return res.status(400).json({ success: false, message: 'Selected category does not exist' });
-  }
-
-  const imageFile = req.files && req.files.image && req.files.image[0];
-  const modelFile = req.files && req.files.model && req.files.model[0];
-  const existingItem = menuItems[itemIndex];
-
-  const nextImage = imageFile ? '/public/images/' + imageFile.filename : String(body.image || '').trim();
-  const nextModel = modelFile ? '/public/models/' + modelFile.filename : String(body.model || '').trim();
-
-  const updatedItem = {
-    ...existingItem,
-    name,
-    price,
-    category: categoryId,
-    image: nextImage || existingItem.image || '',
-    model: nextModel || existingItem.model || '',
-    updatedAt: new Date().toISOString()
-  };
-
-  menuItems[itemIndex] = updatedItem;
-  res.json({ success: true, item: updatedItem });
 });
 
-app.delete('/api/menu/:id', (req, res) => {
-  const itemId = String(req.params.id || '').trim();
-  const itemIndex = menuItems.findIndex((item) => String(item.id) === itemId);
-
-  if (itemIndex === -1) {
-    return res.status(404).json({ success: false, message: 'Menu item not found' });
+app.get('/api/waiters', async (req, res) => {
+  try {
+    const items = await prisma.waiter.findMany({ orderBy: { createdAt: 'desc' } });
+    res.json({ success: true, items });
+  } catch (_) {
+    res.status(500).json({ success: false, message: 'Unable to load waiters' });
   }
-
-  const removedItem = menuItems.splice(itemIndex, 1)[0];
-  res.json({ success: true, item: removedItem });
 });
 
-app.get('/api/waiters', (req, res) => {
-  res.json({ success: true, items: waiters });
-});
-
-app.post('/api/waiters', (req, res) => {
+app.post('/api/waiters', async (req, res) => {
   const body = req.body || {};
   const name = String(body.name || '').trim();
   const phone = String(body.phone || '').trim();
@@ -239,22 +322,31 @@ app.post('/api/waiters', (req, res) => {
   if (!name) {
     return res.status(400).json({ success: false, message: 'Waiter name is required' });
   }
-  const waiter = {
-    id: makeId(name),
-    name,
-    phone,
-    shift: shift || 'General',
-    createdAt: new Date().toISOString()
-  };
-  waiters.unshift(waiter);
-  res.json({ success: true, item: waiter });
+  try {
+    const item = await prisma.waiter.create({
+      data: {
+        id: makeId(name),
+        name,
+        phone,
+        shift: shift || 'General'
+      }
+    });
+    res.json({ success: true, item });
+  } catch (_) {
+    res.status(500).json({ success: false, message: 'Unable to add waiter' });
+  }
 });
 
-app.get('/api/tables', (req, res) => {
-  res.json({ success: true, items: tables });
+app.get('/api/tables', async (req, res) => {
+  try {
+    const items = await prisma.tableEntity.findMany({ orderBy: { createdAt: 'desc' } });
+    res.json({ success: true, items });
+  } catch (_) {
+    res.status(500).json({ success: false, message: 'Unable to load tables' });
+  }
 });
 
-app.post('/api/tables', (req, res) => {
+app.post('/api/tables', async (req, res) => {
   const body = req.body || {};
   const tableNumber = String(body.tableNumber || '').trim();
   const capacity = Number(body.capacity);
@@ -266,68 +358,101 @@ app.post('/api/tables', (req, res) => {
   if (!Number.isFinite(capacity) || capacity <= 0) {
     return res.status(400).json({ success: false, message: 'Capacity must be greater than 0' });
   }
-  const table = {
-    id: makeId('table-' + tableNumber),
-    tableNumber,
-    capacity,
-    area: area || 'Main Hall',
-    status: status || 'available',
-    createdAt: new Date().toISOString()
-  };
-  tables.unshift(table);
-  res.json({ success: true, item: table });
+  try {
+    const item = await prisma.tableEntity.create({
+      data: {
+        id: makeId('table-' + tableNumber),
+        tableNumber,
+        capacity,
+        area: area || 'Main Hall',
+        status: status || 'available'
+      }
+    });
+    res.json({ success: true, item });
+  } catch (_) {
+    res.status(500).json({ success: false, message: 'Unable to add table' });
+  }
 });
 
 // Create new order
-app.post('/api/orders', (req, res) => {
+app.post('/api/orders', async (req, res) => {
   const { tableNumber, items, total } = req.body || {};
 
   if (!tableNumber || !items || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ ok: false, message: 'Invalid order payload' });
   }
 
-  const order = {
-    id: nextId++,
-    tableNumber: String(tableNumber),
-    items,
-    total: Number(total) || 0,
-    status: 'pending',
-    createdAt: new Date().toISOString()
-  };
-
-  orders.unshift(order);
-  console.log('New order:', order);
-
-  res.json({ ok: true, order });
+  try {
+    const order = await prisma.order.create({
+      data: {
+        tableNumber: String(tableNumber),
+        total: Number(total) || 0,
+        status: 'pending',
+        items: {
+          create: items.map((item) => ({
+            name: String(item.name || 'Item'),
+            qty: Number(item.qty) || 1,
+            price: Number(item.price) || 0
+          }))
+        }
+      },
+      include: { items: true }
+    });
+    console.log('New order:', order.id);
+    res.json({ ok: true, order: mapOrder(order) });
+  } catch (_) {
+    res.status(500).json({ ok: false, message: 'Unable to create order' });
+  }
 });
 
 // List all orders (for dashboard)
-app.get('/api/orders', (req, res) => {
-  res.json({ ok: true, orders });
+app.get('/api/orders', async (req, res) => {
+  try {
+    const orders = await prisma.order.findMany({
+      include: { items: true },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json({ ok: true, orders: orders.map(mapOrder) });
+  } catch (_) {
+    res.status(500).json({ ok: false, message: 'Unable to load orders' });
+  }
 });
 
 // Get single order (for user status polling)
-app.get('/api/orders/:id', (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const order = orders.find(o => o.id === id);
-  if (!order) return res.status(404).json({ ok: false, message: 'Order not found' });
-  res.json({ ok: true, order });
+app.get('/api/orders/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return res.status(400).json({ ok: false, message: 'Invalid order id' });
+  try {
+    const order = await prisma.order.findUnique({ where: { id }, include: { items: true } });
+    if (!order) return res.status(404).json({ ok: false, message: 'Order not found' });
+    res.json({ ok: true, order: mapOrder(order) });
+  } catch (_) {
+    res.status(500).json({ ok: false, message: 'Unable to load order' });
+  }
 });
 
 // Update order status (pending → in_process → delivered → completed)
-app.patch('/api/orders/:id', (req, res) => {
-  const id = parseInt(req.params.id, 10);
+app.patch('/api/orders/:id', async (req, res) => {
+  const id = Number(req.params.id);
   const { status } = req.body || {};
   const allowed = ['pending', 'in_process', 'delivered', 'completed'];
+  if (!Number.isInteger(id)) return res.status(400).json({ ok: false, message: 'Invalid order id' });
   if (!allowed.includes(status)) {
     return res.status(400).json({ ok: false, message: 'Invalid status' });
   }
-  const order = orders.find(o => o.id === id);
-  if (!order) return res.status(404).json({ ok: false, message: 'Order not found' });
-  order.status = status;
-  order.updatedAt = new Date().toISOString();
-  console.log('Order updated:', order.id, status);
-  res.json({ ok: true, order });
+  try {
+    const existing = await prisma.order.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ ok: false, message: 'Order not found' });
+    const order = await prisma.order.update({
+      where: { id },
+      data: { status },
+      include: { items: true }
+    });
+    console.log('Order updated:', order.id, status);
+    res.json({ ok: true, order: mapOrder(order) });
+  } catch (_) {
+    res.status(500).json({ ok: false, message: 'Unable to update order' });
+  }
 });
 
 // Admin dashboard (SPA-style) with real Orders + dummy sections
@@ -1504,7 +1629,11 @@ app.get('/admin', (req, res) => {
   `);
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
 
